@@ -111,13 +111,12 @@ class DisplayWindow:
                 w, h = self._target_w, self._target_h
 
             # Resize window if size changed
-            w, h = self._screen.get_size()
-            with self._lock:
-                if w != self._target_w or h != self._target_h:
-                    self._screen = pygame.display.set_mode(
-                        (self._target_w, self._target_h), pygame.NOFRAME
-                    )
-                    self._apply_always_on_top()
+            current_w, current_h = self._screen.get_size()
+            if current_w != w or current_h != h:
+                self._screen = pygame.display.set_mode(
+                    (w, h), pygame.NOFRAME
+                )
+                self._apply_always_on_top()
 
             # Apply position
             self._apply_position()
@@ -134,11 +133,13 @@ class DisplayWindow:
         """Move the pygame window to the target position using Windows API."""
         try:
             hwnd = pygame.display.get_wm_info()['window']
+            with self._lock:
+                tx, ty = self._target_x, self._target_y
             user32.SetWindowPos(
                 hwnd,           # hWnd
                 -1,             # hWndInsertAfter: HWND_TOPMOST (-1)
-                self._target_x,  # X
-                self._target_y,  # Y
+                tx,             # X
+                ty,             # Y
                 0, 0,            # cx, cy (use existing)
                 0x0001 | 0x0004  # flags: SWP_NOSIZE | SWP_NOZORDER
             )
