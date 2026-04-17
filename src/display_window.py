@@ -93,21 +93,18 @@ class DisplayWindow:
             return
 
         try:
-            # Only initialize display subsystem — explicitly test if display is available
             pygame.display.init()
-            # Try creating a 1x1 window to test display access
             test_surface = pygame.display.set_mode((1, 1), pygame.HWSURFACE | pygame.DOUBLEBUF)
             if test_surface is None:
                 raise RuntimeError("pygame display.set_mode returned None")
             pygame.display.quit()
             pygame.display.init()
         except Exception as e:
-            print(f"[打屏窗口] 无法初始化显示器（无显卡/无桌面环境）: {e}")
+            print(f"[打屏窗口] 无法初始化显示器: {e}")
             print("[打屏窗口] 打屏功能已禁用，主程序继续运行")
             self._display_available = False
             return
 
-        # Display IS available — proceed with real window
         self._display_available = True
 
         try:
@@ -122,17 +119,17 @@ class DisplayWindow:
             self._display_available = False
             return
 
-        # Set Always on Top and Position
+        # Set user32 at module level (NOT local variable!)
         try:
             user32 = ctypes.windll.user32
             self._apply_always_on_top()
             self._apply_position()
+            print(f"[打屏窗口] 已创建，HWND={self._hwnd}，置顶模式")
         except Exception as e:
             print(f"[打屏窗口] 窗口置顶/位置设置失败: {e}")
 
         pygame.display.set_caption(self.title)
 
-        # Main loop
         while self._running:
             try:
                 for event in pygame.event.get():
@@ -142,10 +139,8 @@ class DisplayWindow:
 
                 with self._lock:
                     r, g, b = self._target_r, self._target_g, self._target_b
-                    x, y = self._target_x, self._target_y
                     w, h = self._target_w, self._target_h
 
-                # Resize if needed
                 if self._screen.get_size() != (w, h):
                     self._screen = pygame.display.set_mode(
                         (w, h), pygame.HWSURFACE | pygame.DOUBLEBUF
@@ -153,16 +148,15 @@ class DisplayWindow:
                     self._hwnd = pygame.display.get_wm_info()['window']
                     self._apply_always_on_top()
 
-                # Apply position every frame
+                # Always reapply position every frame
                 self._apply_position()
+                self._apply_always_on_top()  # Keep on top every frame
 
-                # Render
                 self._screen.fill((r, g, b))
                 pygame.display.flip()
                 self._clock.tick(30)
 
             except Exception as e:
-                # Keep running even if rendering fails — prevents thread crash
                 print(f"[打屏窗口] 渲染异常: {e}")
                 time.sleep(0.1)
 

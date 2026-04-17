@@ -311,12 +311,12 @@ class App:
         self._lbl_sub.pack(side='left', padx=4, pady=14)
 
         # Theme toggle button
-        self._btn_theme = tk.Button(header, text="☀️", font=(FONT_NAME, 14),
+        self._btn_theme = tk.Button(header, text="浅色", font=(FONT_NAME, 10),
                                     bg=t['surface'], fg=t['text'],
                                     relief='flat', bd=0,
                                     activebackground=t['accent'],
                                     command=self._toggle_theme,
-                                    cursor='hand2', padx=8)
+                                    cursor='hand2', padx=8, width=5)
         self._btn_theme.pack(side='right', padx=PAD, pady=8)
 
         # Bottom border
@@ -808,8 +808,8 @@ class App:
         self._left_frame.configure(bg=t['surface'])
         self._divider.configure(bg=t['divider'])
         self._right_frame.configure(bg=t['bg'])
-        self._btn_theme.configure(text="🌙" if self.is_dark else "☀️",
-                                   bg=t['surface'], fg=t['text'])
+        self._btn_theme.configure(text="深色" if self.is_dark else "浅色",
+                                   bg=t['surface'], fg=t['text'], width=5)
 
         # Rebuild all sections with new theme colors
         self._rebuild_surface_widgets()

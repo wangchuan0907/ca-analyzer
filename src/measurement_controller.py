@@ -119,6 +119,9 @@ class MeasurementController:
 
     def _on_worker_finished(self, message: str) -> None:
         self._state = State.IDLE
+        # CRITICAL: also notify UI of IDLE state so badge/color resets
+        if self.on_state_changed:
+            self.on_state_changed("IDLE")
         if self.on_finished:
             self.on_finished(message)
         self._thread = None
