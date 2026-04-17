@@ -1,0 +1,14 @@
+{
+  "name": "ca-analyzer",
+  "version": "1.0.0",
+  "description": "CA-410 色度分析仪 — Tauri v2 桌面应用",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "tauri": "tauri"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  }
+}

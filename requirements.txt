@@ -1,4 +1,14 @@
-pyserial>=3.5
-pywin32>=306
-pygame>=2.5
-pyinstaller>=6.0
+# CA-Analyzer — Tauri v2 版本
+# 本文件仅用于记录开发环境依赖（非打包用途）
+
+# Node.js 依赖（运行 npm install）
+# @tauri-apps/cli ^2.0.0
+
+# Rust 依赖（通过 cargo 管理，参见 src-tauri/Cargo.toml）
+# tauri ^2.0
+# tauri-plugin-serial ^2.0
+
+# 开发环境要求
+# - Node.js >= 18.0
+# - Rust >= 1.70
+# - Windows 10/11 (x64)
