@@ -1,0 +1,4 @@
+pyserial>=3.5
+pywin32>=306
+pygame>=2.5
+pyinstaller>=6.0
