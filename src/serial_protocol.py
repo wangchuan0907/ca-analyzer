@@ -121,18 +121,31 @@ class CA410Protocol:
           - "Measuring Instruments"
           - "USB 串行设备"
 
-        Compatible with pyserial 3.x (uses getattr to handle attribute name differences).
+        Uses try/except for maximum compatibility across pyserial versions.
         """
         keywords = ['Measuring Instruments', 'USB 串行设备']
         matches = []
         for port in serial.tools.list_ports.comports():
-            # Try multiple attribute names for cross-version compatibility
-            name = (
-                getattr(port, 'description', None)
-                or getattr(port, 'descriptive_port_name', None)
-                or getattr(port, 'name', None)
-                or str(port)
-            )
-            if name and any(kw in str(name) for kw in keywords):
-                matches.append(port.device)
+            # Try to get port name/description using try/except (safest approach)
+            name = None
+            for attr in ('description', 'descriptive_port_name', 'name'):
+                try:
+                    val = getattr(port, attr, None)
+                    if val:
+                        name = str(val)
+                        break
+                except Exception:
+                    pass
+            # Fallback: use device name directly
+            if not name:
+                try:
+                    name = str(port.device)
+                except Exception:
+                    name = str(port)
+            # Match keywords
+            try:
+                if any(kw in name for kw in keywords):
+                    matches.append(port.device)
+            except Exception:
+                pass
         return matches
