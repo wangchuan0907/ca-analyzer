@@ -28,18 +28,19 @@ class DisplayWindow:
         self._running = False
 
         # Target display parameters (written from main thread, read in pygame thread)
-        # Default: white at max gray (255) per spec
+        # Default: white at max gray (255), position (0,0) per spec
         self._target_r = 255
         self._target_g = 255
         self._target_b = 255
-        self._target_x = 100
-        self._target_y = 100
+        self._target_x = 0
+        self._target_y = 0
         self._target_w = 512
         self._target_h = 512
 
         # pygame objects (created in the pygame thread)
-        self._screen: Optional[pygame.Surface] = None
-        self._clock: Optional[pygame.time.Clock] = None
+        self._screen: Optional[object] = None
+        self._clock: Optional[object] = None
+        self._hwnd: Optional[int] = None  # Windows window handle
 
         # Lock for shared parameters
         self._lock = threading.Lock()
@@ -93,13 +94,16 @@ class DisplayWindow:
             return  # pygame not available — skip display window
         self._clock = pygame.time.Clock()
 
-        # Create window — initially small, position will be set after init
+        # Create window — use SHOWN so window is visible and has a valid handle
         self._screen = pygame.display.set_mode(
             (self._target_w, self._target_h),
-            pygame.NOFRAME
+            pygame.SHOWN  # visible window, not NOFRAME
         )
 
-        # Set Always on Top via Windows SetWindowPos
+        # Get window handle immediately after set_mode
+        self._hwnd = pygame.display.get_wm_info()['window']
+
+        # Set Always on Top + Position
         self._apply_always_on_top()
         self._apply_position()
 
@@ -119,47 +123,56 @@ class DisplayWindow:
                 w, h = self._target_w, self._target_h
 
             # Resize window if size changed
-            current_w, current_h = self._screen.get_size()
-            if current_w != w or current_h != h:
+            if self._screen.get_size() != (w, h):
                 self._screen = pygame.display.set_mode(
-                    (w, h), pygame.NOFRAME
+                    (w, h), pygame.SHOWN
                 )
+                # Get new window handle after set_mode
+                self._hwnd = pygame.display.get_wm_info()['window']
                 self._apply_always_on_top()
 
-            # Apply position
+            # Always apply position every frame (ensures real-time tracking)
             self._apply_position()
 
             # Fill with target color
             self._screen.fill((r, g, b))
             pygame.display.flip()
 
-            self._clock.tick(30)  # ~30 fps is enough for color updates
+            self._clock.tick(30)  # ~30 fps
 
         pygame.quit()
 
     def _apply_position(self) -> None:
         """Move the pygame window to the target position using Windows API."""
+        if self._hwnd is None:
+            try:
+                self._hwnd = pygame.display.get_wm_info()['window']
+            except Exception:
+                return
         try:
-            hwnd = pygame.display.get_wm_info()['window']
             with self._lock:
                 tx, ty = self._target_x, self._target_y
             user32.SetWindowPos(
-                hwnd,           # hWnd
-                -1,             # hWndInsertAfter: HWND_TOPMOST (-1)
+                self._hwnd,     # hWnd
+                -1,             # HWND_TOPMOST
                 tx,             # X
                 ty,             # Y
-                0, 0,            # cx, cy (use existing)
-                0x0001 | 0x0004  # flags: SWP_NOSIZE | SWP_NOZORDER
+                0, 0,           # cx, cy (use existing)
+                0x0001 | 0x0004  # SWP_NOSIZE | SWP_NOZORDER
             )
         except Exception:
-            pass  # Non-critical on non-Windows platforms
+            pass
 
     def _apply_always_on_top(self) -> None:
         """Ensure the window stays on top using Windows SetWindowPos."""
+        if self._hwnd is None:
+            try:
+                self._hwnd = pygame.display.get_wm_info()['window']
+            except Exception:
+                return
         try:
-            hwnd = pygame.display.get_wm_info()['window']
             user32.SetWindowPos(
-                hwnd,
+                self._hwnd,
                 -1,  # HWND_TOPMOST
                 0, 0, 0, 0,
                 0x0001 | 0x0002  # SWP_NOMOVE | SWP_NOSIZE

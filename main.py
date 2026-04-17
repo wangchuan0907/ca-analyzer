@@ -56,43 +56,43 @@ from functools import partial
 # ── Theme colors ──────────────────────────────────────────────────────────────
 
 DARK_THEME = {
-    'bg':        "#1E1E2E",
-    'surface':   "#2D2D44",
-    'border':    "#3D3D5C",
-    'accent':    "#6C7EE1",
-    'accent_h':  "#7C8EF1",
-    'text':      "#FFFFFF",
-    'text_sec':  "#A0A0B8",
-    'text_plh':  "#6A6A80",
+    'bg':        "#1E5B9E",   # 深蓝色背景
+    'surface':   "#1A4A82",   # 略深的面板背景
+    'border':    "#2A6AB0",
+    'accent':    "#FF9800",   # 橙色（启用按钮高亮）
+    'accent_h':  "#FFB74D",
+    'text':      "#FFFFFF",   # 白色字体
+    'text_sec':  "#C0D8F0",
+    'text_plh':  "#8AACCC",
     'success':   "#4CAF50",
     'error':     "#F44336",
-    'warning':   "#FF9800",
-    'divider':   "#2A2A40",
-    'log_bg':    "#181828",
-    'disabled':  "#404060",
-    'disabled_tx':"#707090",
-    'progress_bg':"#2D2D44",
-    'canvas_border': "#3D3D5C",
+    'warning':   "#FF9800",   # 橙色
+    'divider':   "#2A6AB0",
+    'log_bg':    "#164A80",
+    'disabled':  "#4A7AAA",
+    'disabled_tx':"#8AACCC",
+    'progress_bg':"#1A4A82",
+    'canvas_border': "#2A6AB0",
 }
 
 LIGHT_THEME = {
-    'bg':        "#F0F0F5",
+    'bg':        "#E8F4FD",   # 浅蓝色背景
     'surface':   "#FFFFFF",
-    'border':    "#D0D0E0",
-    'accent':    "#4A56E2",
-    'accent_h':  "#5A66F2",
+    'border':    "#B0D0F0",
+    'accent':    "#FF9800",   # 橙色（启用按钮高亮）
+    'accent_h':  "#FFB74D",
     'text':      "#1A1A2E",
-    'text_sec':  "#707090",
-    'text_plh':  "#A0A0B0",
+    'text_sec':  "#507090",
+    'text_plh':  "#90B0C8",
     'success':   "#388E3C",
     'error':     "#D32F2F",
-    'warning':   "#F57C00",
-    'divider':   "#D8D8E8",
-    'log_bg':    "#E8E8F0",
-    'disabled':  "#D0D0D8",
-    'disabled_tx':"#A0A0A8",
-    'progress_bg':"#E0E0E8",
-    'canvas_border': "#C0C0D0",
+    'warning':   "#FF9800",
+    'divider':   "#C0D8F0",
+    'log_bg':    "#D8EAFC",
+    'disabled':  "#C0D0D8",
+    'disabled_tx':"#909090",
+    'progress_bg':"#D0E0F0",
+    'canvas_border': "#B0D0F0",
 }
 
 # ── Layout constants ──────────────────────────────────────────────────────────
@@ -934,11 +934,28 @@ class App:
 
     def _on_finished(self, message: str) -> None:
         if message.startswith("ERROR:"):
-            self._log(f"[错误] {message[6:]}", 'error')
+            err_msg = message[6:]
+            self._log(f"[错误] {err_msg}", 'error')
+            # 弹窗告知用户
+            try:
+                import tkinter.messagebox as mb
+                mb.showerror("测量错误", err_msg)
+            except Exception:
+                pass
         elif message == "CSV export cancelled":
             self._log("CSV 导出已取消", 'warning')
+            try:
+                import tkinter.messagebox as mb
+                mb.showwarning("已取消", "CSV 导出已取消")
+            except Exception:
+                pass
         else:
             self._log(f"[完成] CSV 已保存: {message}", 'success')
+            try:
+                import tkinter.messagebox as mb
+                mb.showinfo("测量完成", f"CSV 已保存:\n{message}")
+            except Exception:
+                pass
 
     # ── Close ────────────────────────────────────────────────────────────────
 
