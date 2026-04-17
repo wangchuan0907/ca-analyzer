@@ -27,9 +27,10 @@ class DisplayWindow:
         self._running = False
 
         # Target display parameters (written from main thread, read in pygame thread)
-        self._target_r = 128
-        self._target_g = 128
-        self._target_b = 128
+        # Default: white at max gray (255) per spec
+        self._target_r = 255
+        self._target_g = 255
+        self._target_b = 255
         self._target_x = 100
         self._target_y = 100
         self._target_w = 512
