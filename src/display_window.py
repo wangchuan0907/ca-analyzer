@@ -9,15 +9,15 @@ import threading
 import time
 from typing import Optional
 
-# Lazy import — only load pygame when display window is actually needed
+# Lazy import pygame — only loaded when display is actually started
 pygame = None
 user32 = None
+win32gui = None
 
 
 class DisplayWindow:
     """
     Independent Pygame window for rendering solid-color screen patches.
-
     Runs its own pygame event loop in a background thread.
     Call set_color(), set_position(), set_size() from any thread.
     """
@@ -26,7 +26,7 @@ class DisplayWindow:
         self.title = title
         self._thread: Optional[threading.Thread] = None
         self._running = False
-        self._display_available = False  # True only if pygame window created successfully
+        self._display_available = False
 
         # Target display parameters
         self._target_r = 255
@@ -83,20 +83,22 @@ class DisplayWindow:
 
     def _run(self) -> None:
         """Pygame event loop — runs in background thread."""
-        global pygame, user32
+        global pygame, user32, win32gui
 
+        # ── 1. Lazy import pygame ───────────────────────────────────────────
         try:
             import pygame as _pg
             pygame = _pg
-        except Exception:
-            print("[打屏窗口] pygame 导入失败，跳过打屏功能")
+        except Exception as e:
+            print(f"[打屏窗口] pygame 导入失败: {e}")
             return
 
+        # ── 2. Test display availability ──────────────────────────────────
         try:
             pygame.display.init()
-            test_surface = pygame.display.set_mode((1, 1), pygame.HWSURFACE | pygame.DOUBLEBUF)
-            if test_surface is None:
-                raise RuntimeError("pygame display.set_mode returned None")
+            test = pygame.display.set_mode((1, 1), pygame.HWSURFACE | pygame.DOUBLEBUF)
+            if test is None:
+                raise RuntimeError("set_mode returned None")
             pygame.display.quit()
             pygame.display.init()
         except Exception as e:
@@ -107,29 +109,65 @@ class DisplayWindow:
 
         self._display_available = True
 
+        # ── 3. Load Windows API ─────────────────────────────────────────────
+        try:
+            user32 = ctypes.windll.user32
+        except Exception as e:
+            print(f"[打屏窗口] 无法加载 user32: {e}")
+            self._display_available = False
+            return
+
+        try:
+            import win32gui
+        except ImportError:
+            win32gui = None
+
+        # ── 4. Create the actual pygame window ──────────────────────────────
         try:
             self._clock = pygame.time.Clock()
             self._screen = pygame.display.set_mode(
                 (self._target_w, self._target_h),
                 pygame.HWSURFACE | pygame.DOUBLEBUF
             )
-            self._hwnd = pygame.display.get_wm_info()['window']
+            pygame.display.set_caption(self.title)
         except Exception as e:
             print(f"[打屏窗口] 无法创建窗口: {e}")
             self._display_available = False
             return
 
-        # Set user32 at module level (NOT local variable!)
+        # ── 5. Get and verify HWND ──────────────────────────────────────────
         try:
-            user32 = ctypes.windll.user32
-            self._apply_always_on_top()
-            self._apply_position()
-            print(f"[打屏窗口] 已创建，HWND={self._hwnd}，置顶模式")
+            wm_info = pygame.display.get_wm_info()
+            self._hwnd = wm_info.get('window')
+            if self._hwnd is None or self._hwnd == 0:
+                # Try alternative keys
+                for key in ('window', 'hwnd', 'HWND'):
+                    try:
+                        self._hwnd = wm_info[key]
+                        if self._hwnd:
+                            break
+                    except KeyError:
+                        continue
+            if self._hwnd is None or self._hwnd == 0:
+                print(f"[打屏窗口] 无法获取 HWND，wm_info={wm_info}")
+                # Try win32gui as fallback
+                if win32gui:
+                    hwnd = win32gui.GetForegroundWindow()
+                    if hwnd:
+                        self._hwnd = hwnd
         except Exception as e:
-            print(f"[打屏窗口] 窗口置顶/位置设置失败: {e}")
+            print(f"[打屏窗口] HWND 获取失败: {e}")
 
-        pygame.display.set_caption(self.title)
+        print(f"[打屏窗口] 已创建，HWND={self._hwnd}")
 
+        # ── 6. Apply Always on Top ──────────────────────────────────────────
+        if self._hwnd:
+            self._set_always_on_top(self._hwnd)
+
+        # ── 7. Apply initial position ───────────────────────────────────────
+        self._apply_position()
+
+        # ── 8. Main render loop ─────────────────────────────────────────────
         while self._running:
             try:
                 for event in pygame.event.get():
@@ -141,17 +179,29 @@ class DisplayWindow:
                     r, g, b = self._target_r, self._target_g, self._target_b
                     w, h = self._target_w, self._target_h
 
+                # Recreate window if size changed
                 if self._screen.get_size() != (w, h):
-                    self._screen = pygame.display.set_mode(
-                        (w, h), pygame.HWSURFACE | pygame.DOUBLEBUF
-                    )
-                    self._hwnd = pygame.display.get_wm_info()['window']
-                    self._apply_always_on_top()
+                    try:
+                        self._screen = pygame.display.set_mode(
+                            (w, h), pygame.HWSURFACE | pygame.DOUBLEBUF
+                        )
+                        # Get fresh HWND after resize
+                        try:
+                            wm_info = pygame.display.get_wm_info()
+                            self._hwnd = wm_info.get('window')
+                        except Exception:
+                            pass
+                        if self._hwnd:
+                            self._set_always_on_top(self._hwnd)
+                    except Exception as e:
+                        print(f"[打屏窗口] 窗口resize失败: {e}")
 
-                # Always reapply position every frame
-                self._apply_position()
-                self._apply_always_on_top()  # Keep on top every frame
+                # Apply position every frame (robust: try both APIs)
+                if self._hwnd:
+                    self._apply_position()
+                    self._set_always_on_top(self._hwnd)
 
+                # Render
                 self._screen.fill((r, g, b))
                 pygame.display.flip()
                 self._clock.tick(30)
@@ -163,37 +213,47 @@ class DisplayWindow:
         pygame.quit()
 
     def _apply_position(self) -> None:
-        """Move pygame window to target position via Windows API."""
-        if not self._display_available or user32 is None:
+        """Move pygame window to target position via Windows SetWindowPos."""
+        if not self._display_available or not self._hwnd:
             return
-        if self._hwnd is None:
-            try:
-                self._hwnd = pygame.display.get_wm_info()['window']
-            except Exception:
-                return
         try:
             with self._lock:
                 tx, ty = self._target_x, self._target_y
             user32.SetWindowPos(
-                self._hwnd, -1, tx, ty, 0, 0,
+                self._hwnd, -1,  # HWND_TOPMOST
+                tx, ty, 0, 0,
                 0x0001 | 0x0004  # SWP_NOSIZE | SWP_NOZORDER
             )
-        except Exception:
-            pass
+        except Exception as e:
+            # Fallback: try win32gui
+            if win32gui and self._hwnd:
+                try:
+                    win32gui.SetWindowPos(
+                        self._hwnd, win32gui.HWND_TOPMOST,
+                        int(self._target_x), int(self._target_y), 0, 0,
+                        0x0001 | 0x0004
+                    )
+                except Exception:
+                    pass
 
-    def _apply_always_on_top(self) -> None:
-        """Ensure window stays on top via Windows SetWindowPos."""
-        if not self._display_available or user32 is None:
+    def _set_always_on_top(self, hwnd: int) -> None:
+        """Keep window always on top via SetWindowPos."""
+        if not user32 or not hwnd:
             return
-        if self._hwnd is None:
-            try:
-                self._hwnd = pygame.display.get_wm_info()['window']
-            except Exception:
-                return
         try:
             user32.SetWindowPos(
-                self._hwnd, -1, 0, 0, 0, 0,
+                hwnd, -1,  # HWND_TOPMOST
+                0, 0, 0, 0,
                 0x0001 | 0x0002  # SWP_NOMOVE | SWP_NOSIZE
             )
         except Exception:
-            pass
+            # Fallback: try win32gui
+            if win32gui and hwnd:
+                try:
+                    win32gui.SetWindowPos(
+                        hwnd, win32gui.HWND_TOPMOST,
+                        0, 0, 0, 0,
+                        0x0001 | 0x0002
+                    )
+                except Exception:
+                    pass
