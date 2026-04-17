@@ -117,14 +117,22 @@ class CA410Protocol:
         """
         Scan available serial ports and return those matching CA-410 keywords.
 
-        Matches ports whose descriptivePortName contains:
+        Matches ports whose description/name contains:
           - "Measuring Instruments"
           - "USB 串行设备"
+
+        Compatible with pyserial 3.x (uses getattr to handle attribute name differences).
         """
         keywords = ['Measuring Instruments', 'USB 串行设备']
         matches = []
-        for port_info in serial.tools.list_ports.comports():
-            name = port_info.descriptive_port_name
-            if any(kw in name for kw in keywords):
-                matches.append(port_info.device)
+        for port in serial.tools.list_ports.comports():
+            # Try multiple attribute names for cross-version compatibility
+            name = (
+                getattr(port, 'description', None)
+                or getattr(port, 'descriptive_port_name', None)
+                or getattr(port, 'name', None)
+                or str(port)
+            )
+            if name and any(kw in str(name) for kw in keywords):
+                matches.append(port.device)
         return matches
