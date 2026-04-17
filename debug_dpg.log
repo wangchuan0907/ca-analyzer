@@ -1,8 +1,0 @@
-[OK] DPG imported
-[OK] create_context
-[OK] create_viewport
-[OK] theme created
-[OK] window + drawlist elements
-[OK] bind_theme
-[OK] setup_dearpygui ok=False
-[DONE - no GUI available is expected on server]
