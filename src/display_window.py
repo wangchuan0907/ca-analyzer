@@ -8,7 +8,8 @@ import threading
 import time
 from typing import Optional
 
-import pygame
+# Lazy import — only load pygame when display window is actually needed
+pygame = None
 
 user32 = ctypes.windll.user32
 
@@ -83,7 +84,13 @@ class DisplayWindow:
 
     def _run(self) -> None:
         """Pygame event loop (runs in background thread)."""
-        pygame.init()
+        global pygame
+        try:
+            import pygame as _pg
+            pygame = _pg
+            pygame.init()
+        except Exception:
+            return  # pygame not available — skip display window
         self._clock = pygame.time.Clock()
 
         # Create window — initially small, position will be set after init

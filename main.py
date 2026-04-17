@@ -18,17 +18,16 @@ import sys
 
 # ── Single-instance detection (Windows) ─────────────────────────────────────
 if sys.platform == "win32":
-    import win32event
-    import win32api
-    import winerror
+    try:
+        import win32event
+        import win32api
+        import winerror
 
-    _mutex_name = "ca-analyzer-single-instance-mutex"
-    _mutex = win32event.CreateMutex(None, False, _mutex_name)
-    _last_error = win32api.GetLastError()
+        _mutex_name = "ca-analyzer-single-instance-mutex"
+        _mutex = win32event.CreateMutex(None, False, _mutex_name)
+        _last_error = win32api.GetLastError()
 
-    if _last_error == winerror.ERROR_ALREADY_EXISTS:
-        # Another instance is already running — show warning and exit
-        try:
+        if _last_error == winerror.ERROR_ALREADY_EXISTS:
             from PySide6.QtWidgets import QApplication, QMessageBox
             _app = QApplication(sys.argv)
             QMessageBox.warning(
@@ -36,9 +35,10 @@ if sys.platform == "win32":
                 "提示",
                 "软件已启动，请勿重复打开。",
             )
-        except Exception:
-            pass
-        sys.exit(1)
+            sys.exit(1)
+    except ImportError:
+        # pywin32 not installed — skip single-instance check
+        pass
 
 # ── App entry ─────────────────────────────────────────────────────────────────
 from PySide6.QtWidgets import QApplication
