@@ -36,6 +36,15 @@ if sys.platform == "win32":
 # ── App entry ─────────────────────────────────────────────────────────────────
 
 def main() -> None:
+    # Set Windows DPI awareness BEFORE tkinter root is created
+    if sys.platform == "win32":
+        try:
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)  # per-monitor DPI aware
+        except Exception:
+            try:
+                ctypes.windll.user32.SetProcessDPIAware()
+            except Exception:
+                pass
     import tkinter as tk
     root = tk.Tk()
     app = App(root)
