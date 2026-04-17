@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CA-410 灰阶亮色度测量</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <span class="app-title">CA-410 灰阶亮色度测量</span>
+      </div>
+      <div class="header-right">
+        <button id="theme-toggle" class="btn-theme" title="切换主题">🌙</button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="app-main">
+      <!-- Left Panel -->
+      <aside class="panel left-panel">
+        <!-- Position Parameters -->
+        <section class="param-section">
+          <h3 class="section-title">📌 位置参数</h3>
+          <div class="param-grid">
+            <label class="param-label">
+              <span>X</span>
+              <input type="number" id="param-x" class="param-input" value="0" min="0" />
+            </label>
+            <label class="param-label">
+              <span>Y</span>
+              <input type="number" id="param-y" class="param-input" value="0" min="0" />
+            </label>
+            <label class="param-label">
+              <span>宽度</span>
+              <input type="number" id="param-width" class="param-input" value="512" min="1" />
+            </label>
+            <label class="param-label">
+              <span>高度</span>
+              <input type="number" id="param-height" class="param-input" value="512" min="1" />
+            </label>
+          </div>
+        </section>
+
+        <!-- Grayscale Range -->
+        <section class="param-section">
+          <h3 class="section-title">📌 灰阶范围</h3>
+          <div class="param-grid">
+            <label class="param-label">
+              <span>开始</span>
+              <input type="number" id="param-start" class="param-input" value="0" min="0" max="254" />
+            </label>
+            <label class="param-label">
+              <span>结束</span>
+              <input type="number" id="param-end" class="param-input" value="255" min="1" max="255" />
+            </label>
+          </div>
+        </section>
+
+        <!-- Color Mode -->
+        <section class="param-section">
+          <h3 class="section-title">📌 颜色选择</h3>
+          <div class="radio-group">
+            <label class="radio-label">
+              <input type="radio" name="color-mode" value="white" checked />
+              <span>白色</span>
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="color-mode" value="red" />
+              <span>红色</span>
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="color-mode" value="green" />
+              <span>绿色</span>
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="color-mode" value="blue" />
+              <span>蓝色</span>
+            </label>
+          </div>
+        </section>
+
+        <!-- Action Buttons -->
+        <section class="action-section">
+          <button id="btn-start" class="btn btn-start">▶ 开始测量</button>
+          <button id="btn-stop" class="btn btn-stop" disabled>■ 停止</button>
+          <button id="btn-reset" class="btn btn-reset">↺ 重置参数</button>
+        </section>
+
+        <!-- Status Log -->
+        <section class="log-section">
+          <h3 class="section-title">📋 状态日志</h3>
+          <textarea id="log-area" class="log-area" readonly></textarea>
+        </section>
+      </aside>
+
+      <!-- Right Panel -->
+      <section class="panel right-panel">
+        <!-- Preview -->
+        <div class="preview-section">
+          <h3 class="section-title">📊 实时预览</h3>
+          <div class="preview-wrapper">
+            <canvas id="preview-canvas" width="320" height="180"></canvas>
+          </div>
+          <div class="preview-info">
+            <div class="info-row">
+              <span class="info-label">灰阶:</span>
+              <span id="current-gray" class="info-value">--</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">RGB:</span>
+              <span id="current-rgb" class="info-value">(--,--,--)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="table-section">
+          <h3 class="section-title">📋 数据表格</h3>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>灰阶</th>
+                  <th>x</th>
+                  <th>y</th>
+                  <th>Lv</th>
+                </tr>
+              </thead>
+              <tbody id="data-tbody">
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Progress -->
+        <div class="progress-section">
+          <div class="progress-bar-wrapper">
+            <div id="progress-bar" class="progress-bar"></div>
+          </div>
+          <div class="progress-info">
+            <span id="progress-text">待连接</span>
+            <span id="progress-percent">0%</span>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>

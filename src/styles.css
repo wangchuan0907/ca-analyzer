@@ -1,0 +1,525 @@
+/* =============================================
+   CSS Variables & Theme
+   ============================================= */
+:root {
+  --bg: #0D1B2A;
+  --surface: #1B2838;
+  --surface2: #243447;
+  --accent: #00D4FF;
+  --accent2: #FF9800;
+  --text: #FFFFFF;
+  --text-dim: #8BA4B8;
+  --border: #2A3F55;
+  --danger: #F44336;
+  --success: #4CAF50;
+}
+
+[data-theme="light"] {
+  --bg: #E8F4FD;
+  --surface: #FFFFFF;
+  --surface2: #F0F8FF;
+  --accent: #1E5B9E;
+  --accent2: #FF9800;
+  --text: #1A1A2E;
+  --text-dim: #5A7A9A;
+  --border: #C5D8E8;
+  --danger: #E53935;
+  --success: #43A047;
+}
+
+/* =============================================
+   Reset & Base
+   ============================================= */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  overflow: hidden;
+  user-select: none;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* =============================================
+   Header
+   ============================================= */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-theme {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background 0.2s;
+}
+
+.btn-theme:hover {
+  background: var(--border);
+}
+
+/* =============================================
+   Main Layout
+   ============================================= */
+.app-main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  gap: 0;
+}
+
+/* =============================================
+   Panels
+   ============================================= */
+.panel {
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.left-panel {
+  width: 440px;
+  min-width: 440px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.right-panel {
+  flex: 1;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* =============================================
+   Section Titles
+   ============================================= */
+.section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 10px;
+  letter-spacing: 0.5px;
+}
+
+/* =============================================
+   Parameter Sections
+   ============================================= */
+.param-section {
+  background: var(--surface2);
+  border-radius: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+}
+
+.param-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.param-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.param-input {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 14px;
+  width: 100%;
+  transition: border-color 0.2s;
+}
+
+.param-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.param-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* =============================================
+   Radio Group
+   ============================================= */
+.radio-group {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text);
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.radio-label:hover {
+  border-color: var(--accent);
+}
+
+.radio-label input[type="radio"] {
+  accent-color: var(--accent2);
+}
+
+.radio-label:has(input:checked) {
+  border-color: var(--accent2);
+  background: rgba(255, 152, 0, 0.1);
+}
+
+.radio-label:has(input:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* =============================================
+   Action Buttons
+   ============================================= */
+.action-section {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+  min-width: 90px;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-start {
+  background: var(--accent2);
+  color: white;
+}
+
+.btn-start:hover:not(:disabled) {
+  background: #E68A00;
+  box-shadow: 0 0 12px rgba(255, 152, 0, 0.4);
+}
+
+.btn-stop {
+  background: var(--danger);
+  color: white;
+}
+
+.btn-stop:hover:not(:disabled) {
+  background: #D32F2F;
+  box-shadow: 0 0 12px rgba(244, 67, 54, 0.4);
+}
+
+.btn-reset {
+  background: transparent;
+  border: 2px solid var(--accent);
+  color: var(--accent);
+}
+
+.btn-reset:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+/* =============================================
+   Log Area
+   ============================================= */
+.log-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.log-area {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 8px;
+  padding: 10px;
+  font-family: "Cascadia Code", "Consolas", monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  resize: none;
+  overflow-y: auto;
+}
+
+/* =============================================
+   Right Panel: Preview
+   ============================================= */
+.preview-section {
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+}
+
+.preview-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+#preview-canvas {
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #000;
+  image-rendering: pixelated;
+}
+
+.preview-info {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.info-label {
+  color: var(--text-dim);
+}
+
+.info-value {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* =============================================
+   Right Panel: Data Table
+   ============================================= */
+.table-section {
+  flex: 1;
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.table-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.data-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.data-table th {
+  background: var(--surface2);
+  color: var(--accent);
+  padding: 8px 10px;
+  text-align: right;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+
+.data-table th:first-child {
+  text-align: center;
+}
+
+.data-table td {
+  padding: 5px 10px;
+  text-align: right;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+.data-table td:first-child {
+  text-align: center;
+  font-weight: 600;
+}
+
+.data-table tbody tr:nth-child(even) {
+  background: var(--surface2);
+}
+
+.data-table tbody tr:nth-child(odd) {
+  background: var(--surface);
+}
+
+/* =============================================
+   Right Panel: Progress
+   ============================================= */
+.progress-section {
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.progress-bar-wrapper {
+  background: var(--bg);
+  border-radius: 10px;
+  height: 20px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent2) 100%);
+  border-radius: 10px;
+  transition: width 0.3s ease;
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+#progress-percent {
+  font-weight: 700;
+  color: var(--accent2);
+}
+
+/* =============================================
+   Scrollbar
+   ============================================= */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* =============================================
+   Modal
+   ============================================= */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.modal-overlay.hidden {
+  display: none;
+}
+
+.modal-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px 32px;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+
+.modal-box h2 {
+  font-size: 18px;
+  margin-bottom: 12px;
+  color: var(--accent);
+}
+
+.modal-box p {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.modal-box .btn {
+  min-width: 120px;
+}

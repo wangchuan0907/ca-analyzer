@@ -1,0 +1,28 @@
+[package]
+name = "ca-analyzer"
+version = "1.0.0"
+description = "CA-410 色度分析仪 — Tauri v2"
+authors = ["CA-Analyzer"]
+edition = "2021"
+
+[lib]
+name = "ca_analyzer_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+serialport = "4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+log = "0.4"
+env_logger = "0.11"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+panic = "abort"
