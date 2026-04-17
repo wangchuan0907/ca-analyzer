@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Optional
 
 from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
     QLabel, QSpinBox, QRadioButton, QPushButton,
@@ -386,7 +387,7 @@ class MainWindow(QWidget):
         ts = datetime.now().strftime('%H:%M:%S')
         self._log_area.append(f'<span style="color:#8b949e">[{ts}]</span> {msg}')
         cursor = self._log_area.textCursor()
-        cursor.movePosition(cursor.End)
+        cursor.movePosition(QTextCursor.End)
         self._log_area.setTextCursor(cursor)
 
     def _on_data_ready(self, record: dict) -> None:
