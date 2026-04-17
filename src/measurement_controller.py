@@ -1,16 +1,13 @@
 """
 Measurement Controller — State machine + worker thread for CA-410 measurement flow.
-Coordinates serial_protocol, display_window, and csv_exporter.
-All serial I/O happens in the worker thread; results dispatched to GUI via Qt Signals.
+Refactored to remove PySide6 dependency. Uses threading + callback pattern.
 """
 
 import time
 import threading
 from datetime import datetime
 from enum import IntEnum
-from typing import Optional
-
-from PySide6.QtCore import QObject, Signal, QThread
+from typing import Optional, Callable
 
 
 class State(IntEnum):
@@ -25,47 +22,40 @@ class State(IntEnum):
     ERROR       = 99
 
 
-class MeasurementController(QObject):
+class MeasurementController:
     """
-    Orchestrates the CA-410 measurement workflow:
-      1. Scan serial ports
-      2. Connect & probe (COM,1)
-      3. Calibrate (ZRC)
-      4. Loop: set display color → measure (MES,1) → record
-      5. Close (COM,0)
-      6. Export CSV
+    Orchestrates the CA-410 measurement workflow using threading + callbacks.
 
-    Qt Signals (emitted from worker thread → delivered to GUI thread):
-      state_changed    -> str  (state name)
-      log_message      -> str  (human-readable message)
-      data_ready       -> dict (single measurement record)
-      progress_updated -> (int current, int total)
-      finished         -> str  (file path or error message)
+    Callbacks (set these before calling start()):
+      on_state_changed:   callable(str)   — state name changed
+      on_log_message:      callable(str)   — log message
+      on_data_ready:      callable(dict) — single measurement record
+      on_progress_updated: callable(int, int) — current, total
+      on_finished:        callable(str)   — file path or error message
     """
 
-    state_changed    = Signal(str)
-    log_message      = Signal(str)
-    data_ready       = Signal(dict)
-    progress_updated = Signal(int, int)
-    finished         = Signal(str)
-
-    # Color mode constants
     COLOR_WHITE = '白'
     COLOR_RED   = '红'
     COLOR_GREEN = '绿'
     COLOR_BLUE  = '蓝'
 
-    def __init__(self, parent=None):
-        super().__init__(parent)
+    def __init__(self):
         self._state = State.IDLE
-        self._thread: Optional[QThread] = None
+        self._thread: Optional[threading.Thread] = None
         self._worker: Optional['MeasurementWorker'] = None
 
-    # ── Public API (call from GUI main thread) ───────────────────────────────
+        # Callbacks (set by GUI)
+        self.on_state_changed:   Optional[Callable[[str], None]]   = None
+        self.on_log_message:      Optional[Callable[[str], None]]   = None
+        self.on_data_ready:       Optional[Callable[[dict], None]]  = None
+        self.on_progress_updated: Optional[Callable[[int, int], None]] = None
+        self.on_finished:         Optional[Callable[[str], None]]   = None
+
+    # ── Public API ──────────────────────────────────────────────────────────
 
     def start(self, params: dict,
-                display_window=None,
-                csv_exporter=None) -> None:
+              display_window=None,
+              csv_exporter=None) -> None:
         """
         Begin the measurement workflow.
 
@@ -73,75 +63,89 @@ class MeasurementController(QObject):
             params: dict with keys:
               offset_x, offset_y, width, height,
               start_gray, end_gray,
-              color (R/G/B/白)
+              color_name (白/红/绿/蓝)
             display_window: DisplayWindow instance (optional)
             csv_exporter: CSVExporter instance (optional)
         """
         if self._state != State.IDLE:
-            self.log_message.emit("[警告] 测量已在进行中，忽略本次请求")
+            self._emit_log("[警告] 测量已在进行中，忽略本次请求")
             return
 
         self._worker = MeasurementWorker(params)
         self._worker.display_window = display_window
         self._worker.csv_exporter = csv_exporter
-        self._worker.state_changed.connect(self._on_state_changed)
-        self._worker.log_message.connect(self.log_message)
-        self._worker.data_ready.connect(self.data_ready)
-        self._worker.progress_updated.connect(self.progress_updated)
-        self._worker.finished.connect(self._on_finished)
 
-        self._thread = QThread()
-        self._worker.moveToThread(self._thread)
-        self._thread.started.connect(self._worker.run)
+        # Wire up callbacks
+        self._worker._state_changed_cb = self._on_worker_state
+        self._worker._log_cb           = self._emit_log
+        self._worker._data_cb          = self._emit_data
+        self._worker._progress_cb      = self._emit_progress
+        self._worker._finished_cb      = self._on_worker_finished
+
+        self._thread = threading.Thread(
+            target=self._worker.run,
+            daemon=True,
+            name="MeasurementThread"
+        )
         self._thread.start()
 
     def abort(self) -> None:
-        """Request abort of the current measurement (from GUI main thread)."""
+        """Request abort of the current measurement."""
         if self._worker and self._state in (State.MEASURING, State.ABORTING):
             self._worker.abort()
-            self.log_message.emit("[用户] 中止请求已发送")
+            self._emit_log("[用户] 中止请求已发送")
 
     def get_state(self) -> State:
         return self._state
 
-    # ── Internal slots ─────────────────────────────────────────────────────
+    # ── Internal callbacks ─────────────────────────────────────────────────
 
-    def _on_state_changed(self, state_name: str) -> None:
+    def _on_worker_state(self, state_name: str) -> None:
         self._state = State[state_name]
-        self.state_changed.emit(state_name)
+        if self.on_state_changed:
+            self.on_state_changed(state_name)
 
-    def _on_finished(self, message: str) -> None:
+    def _emit_log(self, msg: str) -> None:
+        if self.on_log_message:
+            self.on_log_message(msg)
+
+    def _emit_data(self, record: dict) -> None:
+        if self.on_data_ready:
+            self.on_data_ready(record)
+
+    def _emit_progress(self, current: int, total: int) -> None:
+        if self.on_progress_updated:
+            self.on_progress_updated(current, total)
+
+    def _on_worker_finished(self, message: str) -> None:
         self._state = State.IDLE
-        self.finished.emit(message)
-        if self._thread:
-            self._thread.quit()
-            self._thread.wait(timeout=3000)
-            self._thread = None
+        if self.on_finished:
+            self.on_finished(message)
+        self._thread = None
         self._worker = None
 
 
-class MeasurementWorker(QObject):
+class MeasurementWorker:
     """
-    Actual measurement logic running inside a QThread.
-    Emits Qt Signals back to the controller (and ultimately the GUI).
+    Actual measurement logic running inside a background thread.
+    Uses plain callbacks instead of Qt Signals.
     """
-
-    state_changed    = Signal(str)
-    log_message      = Signal(str)
-    data_ready       = Signal(dict)
-    progress_updated = Signal(int, int)
-    finished         = Signal(str)
 
     def __init__(self, params: dict):
-        super().__init__()
         self.params = params
 
-        # Abort event — thread-safe, can be set from GUI main thread
+        # Callbacks set by MeasurementController
+        self._state_changed_cb:   Optional[Callable[[str], None]]   = None
+        self._log_cb:             Optional[Callable[[str], None]]    = None
+        self._data_cb:            Optional[Callable[[dict], None]]   = None
+        self._progress_cb:        Optional[Callable[[int, int], None]] = None
+        self._finished_cb:        Optional[Callable[[str], None]]    = None
+
+        # Abort event — thread-safe
         self._abort = threading.Event()
 
-        # Reference to display window set by main_window
+        # References set by main_window
         self.display_window = None
-        # Reference to csv_exporter set by main_window
         self.csv_exporter = None
 
         self._records: list[dict] = []
@@ -150,7 +154,7 @@ class MeasurementWorker(QObject):
         """Signal the worker to abort (call from main thread)."""
         self._abort.set()
 
-    # ── Entry point (called in worker thread) ───────────────────────────────
+    # ── Entry point (called in worker thread) ─────────────────────────────
 
     def run(self) -> None:
         """Execute the full measurement workflow."""
@@ -162,8 +166,8 @@ class MeasurementWorker(QObject):
         except Exception as e:
             self._set_state(State.ERROR)
             err_msg = f"[异常] {type(e).__name__}: {e}"
-            self.log_message.emit(err_msg)
-            self.finished.emit(f"ERROR: {err_msg}")
+            self._emit_log(err_msg)
+            self._finished("ERROR: " + err_msg)
 
     def _do_work(self) -> None:
         from .serial_protocol import CA410Protocol
@@ -176,56 +180,56 @@ class MeasurementWorker(QObject):
 
         # ── 1. Scan ports ──────────────────────────────────────────────────
         self._set_state(State.SCANNING)
-        self.log_message.emit("[Step 1] 正在扫描串口...")
+        self._emit_log("[Step 1] 正在扫描串口...")
         ports = CA410Protocol.scan_ports()
         if not ports:
-            self.log_message.emit("[错误] 未找到色度仪设备，请检查连接")
-            self.finished.emit("ERROR: 色度仪未连接")
+            self._emit_log("[错误] 未找到色度仪设备，请检查连接")
+            self._finished("ERROR: 色度仪未连接")
             self._set_state(State.ERROR)
             return
 
         port = ports[0]
-        self.log_message.emit(f"[Step 1] 找到设备: {port}")
+        self._emit_log(f"[Step 1] 找到设备: {port}")
 
         # ── 2. Connect & probe ─────────────────────────────────────────────
         self._set_state(State.CONNECTING)
-        self.log_message.emit(f"[Step 2] 连接色度仪 {port}...")
+        self._emit_log(f"[Step 2] 连接色度仪 {port}...")
         protocol = CA410Protocol(port)
         try:
             protocol.open()
             if not protocol.expect_ok('COM,1'):
-                self.log_message.emit("[错误] 色度仪通讯失败（COM,1 未返回 OK00）")
-                self.finished.emit("ERROR: 色度仪通讯失败")
+                self._emit_log("[错误] 色度仪通讯失败（COM,1 未返回 OK00）")
+                self._finished("ERROR: 色度仪通讯失败")
                 self._set_state(State.ERROR)
                 return
-            self.log_message.emit("[Step 2] 通讯建立成功")
+            self._emit_log("[Step 2] 通讯建立成功")
         except Exception as e:
-            self.log_message.emit(f"[错误] 连接异常: {e}")
-            self.finished.emit(f"ERROR: 连接异常: {e}")
+            self._emit_log(f"[错误] 连接异常: {e}")
+            self._finished(f"ERROR: 连接异常: {e}")
             self._set_state(State.ERROR)
             return
 
         # ── 3. Calibrate ───────────────────────────────────────────────────
         self._set_state(State.CALIBRATING)
-        self.log_message.emit("[Step 3] 正在校准...")
+        self._emit_log("[Step 3] 正在校准...")
         if not protocol.expect_ok('ZRC'):
-            self.log_message.emit("[错误] 色度仪校准失败（ZRC 未返回 OK00）")
-            self.finished.emit("ERROR: 色度仪校准失败")
+            self._emit_log("[错误] 色度仪校准失败（ZRC 未返回 OK00）")
+            self._finished("ERROR: 色度仪校准失败")
             protocol.close()
             self._set_state(State.ERROR)
             return
-        self.log_message.emit("[Step 3] 校准完成")
+        self._emit_log("[Step 3] 校准完成")
 
         # ── 4. Measurement loop ────────────────────────────────────────────
         self._set_state(State.MEASURING)
-        self.log_message.emit(f"[Step 4] 开始测量，灰阶 {start_gray} ~ {end_gray}，颜色: {color_name}")
-        self.progress_updated.emit(0, total)
+        self._emit_log(f"[Step 4] 开始测量，灰阶 {start_gray} ~ {end_gray}，颜色: {color_name}")
+        self._emit_progress(0, total)
 
         index = 0
         for gray in range(start_gray, end_gray + 1):
-            # Check abort flag (max delay: 100ms since we sleep 0.1s per iteration)
+            # Check abort flag
             if self._abort.is_set():
-                self.log_message.emit("[中止] 测量已中止，正在退出循环...")
+                self._emit_log("[中止] 测量已中止，正在退出循环...")
                 self._set_state(State.ABORTING)
                 break
 
@@ -238,24 +242,24 @@ class MeasurementWorker(QObject):
 
             # Check abort again after sleep
             if self._abort.is_set():
-                self.log_message.emit("[中止] 测量已中止，正在退出循环...")
+                self._emit_log("[中止] 测量已中止，正在退出循环...")
                 self._set_state(State.ABORTING)
                 break
 
             # Measure
-            self.log_message.emit(f"  灰阶 {gray}: 发送 MES,1...")
+            self._emit_log(f"  灰阶 {gray}: 发送 MES,1...")
             try:
                 reply = protocol.send_command('MES,1')
                 result = protocol.parse_measurement(reply)
                 if result is None:
-                    self.log_message.emit(f"[错误] 灰阶 {gray} 测量解析失败: {reply}")
-                    self.finished.emit(f"ERROR: 第 {gray} 灰阶测量失败")
+                    self._emit_log(f"[错误] 灰阶 {gray} 测量解析失败: {reply}")
+                    self._finished(f"ERROR: 第 {gray} 灰阶测量失败")
                     self._set_state(State.ERROR)
                     protocol.close()
                     return
             except Exception as e:
-                self.log_message.emit(f"[错误] 灰阶 {gray} 测量异常: {e}")
-                self.finished.emit(f"ERROR: 第 {gray} 灰阶测量异常: {e}")
+                self._emit_log(f"[错误] 灰阶 {gray} 测量异常: {e}")
+                self._finished(f"ERROR: 第 {gray} 灰阶测量异常: {e}")
                 self._set_state(State.ERROR)
                 protocol.close()
                 return
@@ -266,7 +270,7 @@ class MeasurementWorker(QObject):
             record = {
                 '序号': index,
                 '灰阶值': gray,
-                '通道': '单色',  # white mode: single RGB value
+                '通道': '单色',
                 '颜色': color_name,
                 'x': result['x'],
                 'y': result['y'],
@@ -274,35 +278,32 @@ class MeasurementWorker(QObject):
                 '测量时间': ts,
             }
             self._records.append(record)
-            self.data_ready.emit(record)
-            self.progress_updated.emit(index, total)
-            self.log_message.emit(f"  灰阶 {gray}: x={result['x']:.4f} y={result['y']:.4f} Lv={result['lv']:.4f}")
+            self._emit_data(record)
+            self._emit_progress(index, total)
+            self._emit_log(f"  灰阶 {gray}: x={result['x']:.4f} y={result['y']:.4f} Lv={result['lv']:.4f}")
 
         # ── 5. Close ──────────────────────────────────────────────────────
         try:
             protocol.expect_ok('COM,0')
-            self.log_message.emit("[Step 5] 色度仪已关闭")
+            self._emit_log("[Step 5] 色度仪已关闭")
         except Exception:
-            self.log_message.emit("[警告] 色度仪关闭指令失败（已忽略）")
+            self._emit_log("[警告] 色度仪关闭指令失败（已忽略）")
         finally:
             protocol.close()
 
         # ── 6. Export CSV ─────────────────────────────────────────────────
         self._set_state(State.EXPORTING)
-        self.log_message.emit("[Step 6] 正在导出 CSV...")
+        self._emit_log("[Step 6] 正在导出 CSV...")
 
-        # Build default filename: 色度测量-{start}-{end}-{timestamp}.csv
         ts_str = datetime.now().strftime('%Y%m%d_%H%M%S')
         default_name = f"色度测量-{start_gray}-{end_gray}-{ts_str}"
 
         if self.csv_exporter:
             file_path = self.csv_exporter.export(self._records, default_name)
         else:
-            # Fallback: export to current directory
-            import os
+            import os, csv
             fallback_path = os.path.join(os.getcwd(), default_name + '.csv')
             try:
-                import csv
                 with open(fallback_path, 'w', newline='', encoding='utf-8-sig') as f:
                     writer = csv.DictWriter(f, fieldnames=[
                         '序号', '灰阶值', '通道', '颜色', 'x', 'y', '亮度Lv', '测量时间'
@@ -312,17 +313,33 @@ class MeasurementWorker(QObject):
                 file_path = fallback_path
             except Exception as e:
                 file_path = None
-                self.log_message.emit(f"[错误] CSV 写入失败: {e}")
+                self._emit_log(f"[错误] CSV 写入失败: {e}")
 
         if file_path:
-            self.log_message.emit(f"[完成] CSV 已保存: {file_path}")
-            self.finished.emit(file_path)
+            self._emit_log(f"[完成] CSV 已保存: {file_path}")
+            self._finished(file_path)
         else:
-            self.log_message.emit("[完成] CSV 导出已取消")
-            self.finished.emit("CSV export cancelled")
+            self._emit_log("[完成] CSV 导出已取消")
+            self._finished("CSV export cancelled")
 
         self._set_state(State.IDLE)
 
     def _set_state(self, state: State) -> None:
-        """Emit state change signal."""
-        self.state_changed.emit(state.name)
+        if self._state_changed_cb:
+            self._state_changed_cb(state.name)
+
+    def _emit_log(self, msg: str) -> None:
+        if self._log_cb:
+            self._log_cb(msg)
+
+    def _emit_data(self, record: dict) -> None:
+        if self._data_cb:
+            self._data_cb(record)
+
+    def _emit_progress(self, current: int, total: int) -> None:
+        if self._progress_cb:
+            self._progress_cb(current, total)
+
+    def _finished(self, message: str) -> None:
+        if self._finished_cb:
+            self._finished_cb(message)
