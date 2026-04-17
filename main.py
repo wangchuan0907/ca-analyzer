@@ -685,7 +685,7 @@ class PygameApp:
 
     def __init__(self):
         self.screen = pygame.display.set_mode((WIN_W, WIN_H))
-        pygame.display.set_caption("CA-410 色度分析仪")
+        pygame.display.set_caption("CA-410测量Gamma色坐标")
         self.clock = pygame.time.Clock()
 
         # State
@@ -792,14 +792,14 @@ class PygameApp:
         # ── Header ──────────────────────────────────────────────────────────
         # Title
         self.lbl_title = Label(
-            pygame.Rect(16, 16, 300, 28),
-            "CA-410 色度分析仪",
+            pygame.Rect(16, 16, 360, 28),
+            "CA-410测量Gamma色坐标",
             font_size=15, color_key="text", bold=True
         )
         # Subtitle
         self.lbl_subtitle = Label(
             pygame.Rect(16, 38, 200, 16),
-            "Chromaticity Analyzer v2.0",
+            "Gamma & Chromaticity Analyzer",
             font_size=10, color_key="text_sec"
         )
         # Theme toggle
@@ -990,7 +990,7 @@ class PygameApp:
             ("尺寸", self._make_info_label(rx, info_y + 40, rw // 2 - 4, "size")),
             ("RGB",  self._make_info_label(rx + rw // 2 + 4, info_y + 40, rw // 2 - 8, "rgb")),
         ]
-        self._right_info: dict = {k: lbl for _, lbl in info_items}
+        self._right_info: dict = {key: lbl for key, lbl in info_items}
         for _, lbl in info_items:
             self.widgets.append(lbl)
 
